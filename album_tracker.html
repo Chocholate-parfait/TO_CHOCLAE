@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>앨범 구매 정산</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif; background: #f5f5f3; color: #1a1a1a; padding: 24px 16px; }
+  .wrap { max-width: 700px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 20px; }
+  .top-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .metric { background: #fff; border-radius: 12px; padding: 16px; border: 1px solid #e5e5e5; }
+  .metric-label { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .metric-value { font-size: 22px; font-weight: 600; }
+  .countdown-wrap { background: #fff; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; border: 1px solid #e5e5e5; }
+  .countdown-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .countdown-title { font-size: 14px; font-weight: 500; color: #555; }
+  .d-day { font-size: 28px; font-weight: 700; color: #1a1a1a; }
+  .date-inputs { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .date-group { display: flex; flex-direction: column; gap: 4px; }
+  .date-group label { font-size: 12px; color: #888; }
+  .date-group input[type=date] { font-size: 13px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; color: #1a1a1a; }
+  .table-wrap { background: #fff; border-radius: 12px; border: 1px solid #e5e5e5; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  th { background: #fafafa; font-weight: 500; color: #888; padding: 10px 14px; text-align: left; font-size: 12px; border-bottom: 1px solid #eee; }
+  td { padding: 9px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  .section-label { font-size: 11px; color: #aaa; padding: 6px 14px 4px; background: #f9f9f9; border-bottom: 1px solid #eee; }
+  .ver-badge { display: inline-block; padding: 2px 9px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .ver-a { background: #E6F1FB; color: #0C447C; }
+  .ver-b { background: #E1F5EE; color: #085041; }
+  .ver-c { background: #FAEEDA; color: #633806; }
+  .ver-d { background: #FBEAF0; color: #72243E; }
+  .ver-tbd { background: #f0f0f0; color: #999; }
+  .qty-cell { display: flex; align-items: center; gap: 6px; }
+  .qty-btn { width: 26px; height: 26px; border: 1px solid #ddd; border-radius: 7px; background: #fff; color: #333; cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center; transition: background 0.1s; }
+  .qty-btn:hover { background: #f0f0f0; }
+  .qty-num { min-width: 22px; text-align: center; font-size: 14px; font-weight: 600; }
+  .price-input { width: 95px; border: 1px solid #e0e0e0; border-radius: 7px; padding: 5px 8px; font-size: 12px; background: #fafafa; color: #1a1a1a; text-align: right; }
+  .price-input:focus { outline: none; border-color: #aaa; }
+  .total-cell { font-weight: 600; color: #1a1a1a; }
+  .ver-select { font-size: 12px; padding: 4px 6px; border: 1px solid #e0e0e0; border-radius: 7px; background: #fafafa; color: #1a1a1a; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>앨범 구매 정산</h1>
+
+  <div class="top-cards">
+    <div class="metric">
+      <div class="metric-label">총 지출</div>
+      <div class="metric-value" id="total-spend">0원</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">총 수량</div>
+      <div class="metric-value" id="total-qty">0개</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">구매 판매처</div>
+      <div class="metric-value" id="total-stores">0곳</div>
+    </div>
+  </div>
+
+  <div class="countdown-wrap">
+    <div class="countdown-header">
+      <span class="countdown-title">발매일 카운트다운</span>
+      <span class="d-day" id="dday-text">D-?</span>
+    </div>
+    <div class="date-inputs">
+      <div class="date-group">
+        <label>발매일</label>
+        <input type="date" id="release-date">
+      </div>
+      <div class="date-group">
+        <label>예판 시작</label>
+        <input type="date" id="preorder-start">
+      </div>
+      <div class="date-group">
+        <label>예판 종료</label>
+        <input type="date" id="preorder-end">
+      </div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <colgroup>
+        <col style="width:26%">
+        <col style="width:14%">
+        <col style="width:22%">
+        <col style="width:18%">
+        <col style="width:20%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>판매처</th>
+          <th>버전</th>
+          <th>단가 (원)</th>
+          <th>수량</th>
+          <th>합계</th>
+        </tr>
+      </thead>
+      <tbody id="store-table"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const stores = [
+  { name: "위버스샵", ver: "B", country: "국내" },
+  { name: "블래스트샵", ver: "?", country: "국내" },
+  { name: "메이크스타", ver: "?", country: "국내" },
+  { name: "뮤직아트", ver: "?", country: "국내" },
+  { name: "올리브영", ver: "?", country: "국내" },
+  { name: "무신사 1차", ver: "?", country: "국내" },
+  { name: "무신사 2차", ver: "?", country: "국내" },
+  { name: "뮤직플랜트", ver: "?", country: "국내" },
+  { name: "hello82", ver: "?", country: "국내" },
+  { name: "애니메이트", ver: "?", country: "해외" },
+  { name: "TME", ver: "?", country: "해외" },
+  { name: "Will Music", ver: "?", country: "해외" },
+  { name: "HMV", ver: "?", country: "해외" },
+  { name: "TOWER RECORDS", ver: "?", country: "해외" },
+];
+
+const state = stores.map(s => ({ ...s, price: 0, qty: 0 }));
+
+function verClass(v) {
+  if (v === "A") return "ver-a";
+  if (v === "B") return "ver-b";
+  if (v === "C") return "ver-c";
+  if (v === "D") return "ver-d";
+  return "ver-tbd";
+}
+
+function renderTable() {
+  const tbody = document.getElementById("store-table");
+  let html = "";
+  let lastCountry = null;
+  state.forEach((s, i) => {
+    if (s.country !== lastCountry) {
+      html += `<tr><td colspan="5" class="section-label">${s.country}</td></tr>`;
+      lastCountry = s.country;
+    }
+    const total = s.price * s.qty;
+    const verLabel = s.ver === "?" ? "미정" : s.ver + "버전";
+    html += `<tr>
+      <td>${s.name}</td>
+      <td>
+        <select class="ver-select" data-idx="${i}" onchange="updateVer(this)">
+          <option value="?">미정</option>
+          <option value="A"${s.ver==="A"?" selected":""}>A버전</option>
+          <option value="B"${s.ver==="B"?" selected":""}>B버전</option>
+          <option value="C"${s.ver==="C"?" selected":""}>C버전</option>
+          <option value="D"${s.ver==="D"?" selected":""}>D버전</option>
+        </select>
+      </td>
+      <td><input class="price-input" type="number" min="0" value="${s.price || ""}" placeholder="0" data-idx="${i}" onchange="updatePrice(this)"></td>
+      <td>
+        <div class="qty-cell">
+          <button class="qty-btn" onclick="changeQty(${i}, -1)">−</button>
+          <span class="qty-num" id="qty-${i}">${s.qty}</span>
+          <button class="qty-btn" onclick="changeQty(${i}, 1)">+</button>
+        </div>
+      </td>
+      <td class="total-cell" id="row-total-${i}">${total ? total.toLocaleString() + "원" : "-"}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+  updateSummary();
+}
+
+function updateVer(el) {
+  const i = parseInt(el.dataset.idx);
+  state[i].ver = el.value;
+}
+
+function updatePrice(el) {
+  const i = parseInt(el.dataset.idx);
+  state[i].price = parseInt(el.value) || 0;
+  const total = state[i].price * state[i].qty;
+  document.getElementById("row-total-" + i).textContent = total ? total.toLocaleString() + "원" : "-";
+  updateSummary();
+}
+
+function changeQty(i, delta) {
+  state[i].qty = Math.max(0, state[i].qty + delta);
+  document.getElementById("qty-" + i).textContent = state[i].qty;
+  const total = state[i].price * state[i].qty;
+  document.getElementById("row-total-" + i).textContent = total ? total.toLocaleString() + "원" : "-";
+  updateSummary();
+}
+
+function updateSummary() {
+  const totalSpend = state.reduce((a, s) => a + s.price * s.qty, 0);
+  const totalQty = state.reduce((a, s) => a + s.qty, 0);
+  const activeStores = state.filter(s => s.qty > 0).length;
+  document.getElementById("total-spend").textContent = totalSpend.toLocaleString() + "원";
+  document.getElementById("total-qty").textContent = totalQty + "개";
+  document.getElementById("total-stores").textContent = activeStores + "곳";
+}
+
+function updateDday() {
+  const rel = document.getElementById("release-date").value;
+  if (!rel) { document.getElementById("dday-text").textContent = "D-?"; return; }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const releaseDate = new Date(rel);
+  const diff = Math.ceil((releaseDate - today) / 86400000);
+  document.getElementById("dday-text").textContent = diff > 0 ? "D-" + diff : diff === 0 ? "D-DAY" : "발매완료";
+}
+
+document.getElementById("release-date").addEventListener("change", updateDday);
+renderTable();
+</script>
+</body>
+</html>
